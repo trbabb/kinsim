@@ -1,0 +1,11 @@
+#version 120
+
+uniform mat4 rotmat0;
+uniform mat4 rotmat1;
+uniform vec2 res;
+varying vec3 g_intensity;
+
+void main() {
+    gl_Position = gl_Vertex; 
+    g_intensity = gl_Color.rgb;
+}

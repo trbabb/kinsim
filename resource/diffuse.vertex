@@ -1,0 +1,15 @@
+#version 120
+
+varying vec3 normal;
+varying vec3 color;
+varying vec3 pos;   // world space position
+
+void main() {
+    gl_TexCoord[0] = gl_MultiTexCoord0;
+    pos          = (gl_ModelViewMatrix * gl_Vertex).xyz;
+    vec4 pos_scr = ftransform();
+    //pos_scr      = pos_scr / pos_scr.w;
+    normal       = gl_NormalMatrix * gl_Normal;
+    color        = gl_Color.rgb;
+    gl_Position  = pos_scr;
+}
