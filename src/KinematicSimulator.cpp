@@ -117,6 +117,9 @@ void SensorSimulator::advance_dt(real_t dt) {
     real_t dt_i = dt / n_subsims;
     for (int i = 0; i < n_subsims; i++) {
         real_t t_i = t + i / (real_t)n_subsims;
+        // xxx todo: can't type deduce nullptr because c++ blows donkey balls.
+        // pass &macc<whatever types they are>, or specify template
+        // args to rk4.
         rk4_advance(&s1, 1, t_i, dt_i, &s0, &delta, this, &b0, &b1);
         s0 = s1;
     }

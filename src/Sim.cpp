@@ -251,6 +251,8 @@ struct Top : virtual public Animated,
              virtual public Drawable,
              virtual public ForceSystem {
     
+    // cm is at body space origin.
+    
     BodyState s;
     Rect3d box;
     
@@ -260,8 +262,8 @@ struct Top : virtual public Animated,
         s.o = Quatd::rotDirectionAlign(Z_AXIS3d, axis);
         s.m = 1;
         s.J = s.m * moment_of_inertia(box);
-        s.x = Vec3d(0, 0, 1/3.0);
-        s.L = s.o * (Z_AXIS3d * 50);
+        s.x = Vec3d(0, 0, 1/3.);
+        s.L = s.o * (Z_AXIS3d * 0);
     }
     
     // sadly, this ain't work
@@ -269,33 +271,46 @@ struct Top : virtual public Animated,
         *f   = 0.0;
         *tau = 0.0;
         
-        const double amt = 3.0;
-        const double mg = state.m * 9.8;
-        
+        const Vec3d tip_body(0, 0, -1/3.);
+        const Vec3d g_in(0, 0, -9.80);
+        Vec3d centr_accel = state.get_centripetal_accel_point_body(tip_body);
+        Vec3d tip_accel = g_in + centr_accel; // needs also angular acceleration.
+        //Vec3d tip_v = state.get_velocity_point_body(tip_body);
+
         // mg downward on cm.
         state.accumulate_force_inertial(f, tau, 
                                         state.x, 
-                                        -mg * Z_AXIS3d);
-        // mg upward on tip.
+                                        state.m * g_in);
+        // oppose tip acceleration.
         state.accumulate_force_inertial(f, tau, 
-                                        state.x + state.o * -((1 / 3.0) * Z_AXIS3d), 
-                                        mg * Z_AXIS3d);
+                                        tip_body, 
+                                        state.m * -tip_accel);
+    }
+    
+    void applyConstraints(BodyState *state, index_t n, double t, double dt) {
+        // do nothing.
     }
     
     void init(double t) {}
     
     void update(double t, double dt) {
-        BodyState b0, b1;
-        BodyState s1;
+        const int n_steps = 60;
+        double dtt = dt / n_steps;
         
-        // advance the simulation
-        rk4_advance(&s1, 1,             // one output state
-                    t, dt,              // times
-                    &s,                 // current state
-                    body_delta_for_rk4, // delta function
-                    (ForceSystem*)this, // extra data (convert the ptr now, while you still have type info)
-                    &b0, &b1);          // working buffers
-        s = s1;
+        for (int n = 0; n < n_steps; n++) {
+            BodyState b0, b1;
+            BodyState s1;
+
+            // advance the simulation
+            rk4_advance(&s1, 1,               // one output state
+                        t + n * dtt, dtt,     // times
+                        &s,                   // current state
+                        body_delta_for_rk4,   // delta function
+                        body_combine_mul_exp, // accumulation function
+                        (ForceSystem*)this,   // extra data (convert the ptr now, while you still have type info)
+                        &b0, &b1);            // working buffers
+            s = s1;
+        }
     }
     
     void draw() {
@@ -321,15 +336,18 @@ class ProgramState : virtual public Animated,
                      virtual public ForceSystem {
 public:
     
-    ProgramState(Camera *cam) : 
+    ProgramState(Camera *cam, Top *top) : 
         cam(cam),
-        box(ZERO_VEC3d, Vec3d(3,4,2).unit() * 2) {}
+        box(ZERO_VEC3d, Vec3d(3,4,2).unit() * 2), // {}
+        top(top) {}
     
     Camera *cam;
     double t0;
     BodyState s;
     Rect3d box;
     Thruster thrusters[6];
+    
+    Top *top;
     
     // thruster state: [xyz][+/-]
     KeyIntegrator thrust_attitude_state[3][2];
@@ -381,6 +399,7 @@ public:
                     t, dt,              // times
                     &s,                 // current state
                     body_delta_for_rk4, // delta function
+                    body_combine_mul_exp, // accum function
                     (ForceSystem*)this, // extra data (convert the ptr now, while you still have type info)
                     &b0, &b1);          // working buffers
         
@@ -389,6 +408,10 @@ public:
 #if GAME_CAMERA
         setCamera();
 #endif
+    }
+    
+    void applyConstraints(BodyState *state, index_t n, double t, double dt) {
+        // do nothing.
     }
     
     void setCamera() {
@@ -478,6 +501,8 @@ public:
         } else if (key == 'u' or key == 'h') {
             x_idx = 2;
             x_neg = key == 'h';
+        } else if (key == ' ') {
+            *top = Top();
         }
         
         if (t_idx != -1) {
@@ -529,15 +554,15 @@ int main(int argc, char *argv[]) {
     Manipulator manip(&win, &win.cam);
 #endif
     
-    ProgramState s(&win.cam);
-    Sky sky(5000, &s.s);
     Top top;
+    ProgramState s(&win.cam, &top);
+    Sky sky(5000, &s.s);
     
     win.scene.push_back(&s);
-    //win.scene.push_back(&top);
+    win.scene.push_back(&top);
     timer.anims.push_back(&s);
     timer.anims.push_back(&sky);
-    //timer.anims.push_back(&top);
+    timer.anims.push_back(&top);
     win.guiListeners.push_back(&s);
     win.scene.push_back(&sky);
     

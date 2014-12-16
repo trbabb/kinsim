@@ -5,10 +5,13 @@
  *      Author: tbabb
  */
 
+
+// todo: I do not think the coeffs are correct for the multiplicative RK4.
+
 #include "RigidBody.h"
 
 // multiply/accum a BodyMotion, doing "intermediate" quaternion math more sensibly.
-void macc(BodyState *o, double k, const BodyState *d_ds, const BodyState *s, size_t n) {
+void body_combine_mul_exp(BodyState *o, double k, const BodyState *d_ds, const BodyState *s, size_t n) {
     BodyState *end = o + n;
     for (; o != end; o++, d_ds++, s++) {
         o->x = s->x + k * d_ds->x;
@@ -21,6 +24,20 @@ void macc(BodyState *o, double k, const BodyState *d_ds, const BodyState *s, siz
         // (this is to approximate a product integral rather than a summation integral)
         o->o = std::exp(k * d_ds->o) * s->o;
         //o->o = s->o + k * d_ds->o; // david baraff version
+    }
+    // constrain here?
+}
+
+// traditional eulerian body state advancement
+void body_combine_add_mul(BodyState *o, double k, const BodyState *d_ds, const BodyState *s, size_t n) {
+    BodyState *end = o + n;
+    for (; o != end; o++, d_ds++, s++) {
+        o->x = s->x + k * d_ds->x;
+        o->v = s->v + k * d_ds->v;
+        o->L = s->L + k * d_ds->L;
+        o->m = s->m + k * d_ds->m; // probably not changing, but why not?
+        o->J = s->J + k * d_ds->J;
+        o->o = s->o + k * d_ds->o;
     }
 }
 
@@ -54,7 +71,8 @@ void body_delta(BodyState *d_dt, const BodyState &state, double t, ForceSystem* 
 }
 
 void body_delta_for_rk4(BodyState *d_dt, const BodyState *s0, double t, size_t n, void *data) {
+    ForceSystem *fs = (ForceSystem*)data;
     for (size_t i = 0; i < n; i++) {
-        body_delta(d_dt + i, s0[i], t, (ForceSystem*)data);
+        body_delta(d_dt + i, s0[i], t, fs);
     }
 }

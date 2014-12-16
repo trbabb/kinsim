@@ -24,12 +24,15 @@ SRC      = $(wildcard src/*.cpp) \
 OBJ      = $(patsubst src/%.cpp, build/%.o, $(SRC))
 
 
-all: sim ksim
+all: sim ksim qsim
 
 clean:
 	rm -rf ./build/*
 
 ## binaries
+
+qsim:  build/qsim.o
+	$(CC) $(LDFLAGS) build/qsim.o -o bin/qsim
 
 ksim: build/KinematicSimulator.o build/KinematicSolver.o build/KinematicSimulator.o build/KinSim.o
 	$(CC) $(LDFLAGS) build/KinematicSolver.o build/KinematicSimulator.o build/KinSim.o -o bin/ksim

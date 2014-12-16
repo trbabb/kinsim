@@ -5,6 +5,27 @@
  * Created on June 26, 2014, 1:17 AM
  */
 
+/*
+ 
+ on finite impulses:
+
+ limitations
+  - does not conserve angular momentum
+  - friction not proportional to F_normal
+  - Baumgaute term is tweaky
+  - rotational integration is linear; not product.
+  - constraints are pairwise
+  - big mass ratios don't work well.
+
+(can we "triangulate" an impulse for each V that does not change its 
+magnitude? X no, it must be a V that does not add energy. which is different)
+
+Can we explicitly add an energy constraint?
+  is this perhaps added to each kind of constraint explicitly?
+ 
+ 
+ */
+
 #ifndef KINEMATICSIMULATOR_H
 #define	KINEMATICSIMULATOR_H
 
