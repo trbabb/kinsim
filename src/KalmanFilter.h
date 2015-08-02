@@ -30,6 +30,15 @@ index_t measurement_size(Sensor<T>* s, index_t n) {
     return k;
 }
 
+template <typename T>
+index_t measurement_maxwidth(Sensor<T>* s, index_t n) {
+    index_t k = 0;
+    for (index_t i = 0; i < n; i++) {
+        k = std::max(k, s->reading_size());
+    }
+    return k;
+}
+
 /**
  * Estimates the true state of a possibly-multivariate system based on
  * gaussian-uncertain measurements of that state, using an extended Kalman 
@@ -63,7 +72,7 @@ class KalmanFilter {
             x(new T[n]),
             P(n,n),
             predictor(NULL),
-            pool(n,m) {
+            pool(n,m,m) {
         std::fill(x, x+n, 0);
     }
     
@@ -72,7 +81,7 @@ class KalmanFilter {
             x(new T[n]),
             P(n,n),
             predictor(predictor),
-            pool(n,m) {
+            pool(n,m,m) {
         std::fill(x, x+n, 0);
     }
     
@@ -81,7 +90,7 @@ class KalmanFilter {
             x(new T[n]),
             P(n,n),
             predictor(predictor),
-            pool(n, measurement_size(sensors, n_sensors) ) {
+            pool(n, measurement_size(sensors, n_sensors), measurement_maxwidth(sensors, n_sensors) ) {
         std::fill(x, x+n, 0);
     }
     

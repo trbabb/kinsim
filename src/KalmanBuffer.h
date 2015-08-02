@@ -30,8 +30,8 @@ public:
     
     // xxx: todo: compute mmax
     
-    KalmanBuffer(index_t n, index_t m):
-            m(m), n(n), mmax(3) {
+    KalmanBuffer(index_t n, index_t m, index_t mmax):
+            m(m), n(n), mmax(mmax) {
         n_real = 2 * n * n  +  3 * m * n  +  m * m  +  m  +  mmax * mmax;
         n_dual = n + std::max(m, n);
         buf_real = new T[n_real];
@@ -127,8 +127,8 @@ public:
         return WrapperMatrix<T,0,1>(blk_2 + m * m, m0, 1);
     }
     
-    inline WrapperMatrix<T,0,0> getTempNoiseCovariance() {
-        return WrapperMatrix<T,0,0>(blk_2 + m * m + m, mmax, mmax);
+    inline WrapperMatrix<T,0,0> getTempSensorNoiseCovariance(index_t sensor_width) {
+        return WrapperMatrix<T,0,0>(blk_2 + m * m + m, sensor_width, sensor_width);
     }
     
 };

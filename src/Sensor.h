@@ -115,11 +115,11 @@ class Sensor {
      * (The measurement may be ignored if the noise characteristics are 
      * not dependent on it).
      */
-    virtual void covariance(T *cov, const T* measurement) const = 0;
+    virtual void covariance(T* cov, const T* measurement) const = 0;
     /// Return the likelihood that a particular state and measurement coexist.
-    virtual    T likelihood(const T *state, const T *measurement) = 0;
+    virtual    T likelihood(const T* state, const T* measurement) = 0;
     /// Return a stochastic measurement of the given state, with noise added according to the characteristics of the sensor.
-    virtual void simulate(T *measurement, const T *state, rng_t *rng) = 0;
+    virtual void simulate(T* measurement, const T* state, rng_t* rng) = 0;
     
 };
 
