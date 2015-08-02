@@ -7,6 +7,8 @@
 
 #ifndef KALMANFILTER_H
 #define	KALMANFILTER_H
+ 
+// #define DEBUG_KALMAN
 
 #include <vector>
 #include <geomc/function/Dual.h>
@@ -45,7 +47,7 @@ class KalmanFilter {
     SimpleMatrix<T,0,0> P;   // most recent estimate covariance
     Predictor<T> *predictor;
         
-    KalmanFilter(index_t n=1):
+    KalmanFilter(index_t n=1, index_t m=1):
             n(n),
             x(new T[n]),
             P(n,n),
@@ -53,7 +55,7 @@ class KalmanFilter {
         std::fill(x, x+n, 0);
     }
     
-    KalmanFilter(index_t n, Predictor<T> *predictor):
+    KalmanFilter(index_t n, index_t m, Predictor<T> *predictor):
             n(n),
             x(new T[n]),
             P(n,n),
@@ -96,7 +98,6 @@ class KalmanFilter {
         Dual<T> *prediction = new Dual<T>[n];
         SimpleMatrix<T,0,0>      F(n,n); // Jacobian of predictor fn
         SimpleMatrix<T,0,0> tmp_nn(n,n); // temp
-        SimpleMatrix<T,0,1>  x_hat(n,1); // predicted state
         
         std::copy(x, x + n, dual_state);
         // x_hat  <- f(x_{k-1}, u_{k-1})  (predict based on prev state and ctrl input)
@@ -127,12 +128,10 @@ class KalmanFilter {
             std::cout << "previous state: \n";
             print_arr(fuckass,n);
             delete [] fuckass;
+            std::cout.flush();
         // }
 #endif
-            
-        // xhat no longer needs to be dual
-        for (index_t i = 0; i < n; i++) x_hat.begin()[i] = prediction[i].x;
-        
+         
         // P_k <- F * P_{k-1} * F^T + Q_k  (compute prediction covariance)
         
         mul(&tmp_nn, F, P);  // tmp <- F * P_{k-1}
@@ -145,10 +144,13 @@ class KalmanFilter {
         
         for (index_t i = 0; i < n * n; i++) P.begin()[i] += F.begin()[i];
         
-        std::copy(x_hat.begin(), x_hat.end(), x);
+        // xhat no longer needs to be dual
+        for (index_t i = 0; i < n; i++) x[i] = prediction[i].x;
+        
         delete [] dual_state;
         delete [] prediction;
     }
+    
     
     void update(const std::vector< Measurement<T> > &observations) {
         SimpleMatrix<T,0,0> tmp_nn(n,n);
@@ -211,6 +213,7 @@ class KalmanFilter {
             print_arr(fucknuts,m);
             delete [] fucknuts;
             std::cout << "H:\n" << H_k;
+            std::cout.flush();
             // }
 #endif
             
@@ -278,10 +281,6 @@ class KalmanFilter {
                 tmp_nn[i][i] += 1;
             }
             mul(&P, tmp_nn, P); // (alloc)
-        } else {
-            // no sensor update; just use the predicted state.
-            // P is already updated.
-            std::copy(x_hat.begin(), x_hat.end(), x);
         }
 
 #ifdef DEBUG_KALMAN

@@ -7,6 +7,7 @@
 
 
 // todo: I do not think the coeffs are correct for the multiplicative RK4.
+// edit: They are correct, but why?
 
 #include "RigidBody.h"
 
@@ -35,9 +36,10 @@ void body_combine_add_mul(BodyState *o, double k, const BodyState *d_ds, const B
         o->x = s->x + k * d_ds->x;
         o->v = s->v + k * d_ds->v;
         o->L = s->L + k * d_ds->L;
-        o->m = s->m + k * d_ds->m; // probably not changing, but why not?
+        o->m = s->m + k * d_ds->m;
         o->J = s->J + k * d_ds->J;
         o->o = s->o + k * d_ds->o;
+        o->o = o->o.unit();
     }
 }
 
@@ -60,7 +62,7 @@ void body_delta(BodyState *d_dt, const BodyState &state, double t, ForceSystem* 
     // q * v := rotate v by q.
     // v * q := rotate v by q`.
     
-    d_dt->o   = Quatd(state.get_omega(), 0); //0.5 * Quatd(state.get_omega(),0) * state.o; <- deb version
+    d_dt->o   = Quatd(0.5 * state.get_omega(), 0); //0.5 * Quatd(state.get_omega(),0) * state.o; <- deb version
     d_dt->L   = tau;
     
     d_dt->J   = 0.0;
@@ -70,9 +72,21 @@ void body_delta(BodyState *d_dt, const BodyState &state, double t, ForceSystem* 
     // J`(t) = R(t)  * J_0` * R`(t)
 }
 
+void body_delta_euler(BodyState *d_dt, const BodyState &state, double t, ForceSystem *fs) {
+    body_delta(d_dt, state, t, fs);
+    d_dt->o = (d_dt->o * state.o) ; // deb version. agrees only if coeff is 1.0. baraff says 0.5, though. //xxx
+}
+
 void body_delta_for_rk4(BodyState *d_dt, const BodyState *s0, double t, size_t n, void *data) {
     ForceSystem *fs = (ForceSystem*)data;
     for (size_t i = 0; i < n; i++) {
         body_delta(d_dt + i, s0[i], t, fs);
+    }
+}
+
+void body_delta_euler_for_rk4(BodyState *d_dt, const BodyState *s0, double t, size_t n, void *data) {
+    ForceSystem *fs = (ForceSystem*)data;
+    for (size_t i = 0; i < n; i++) {
+        body_delta_euler(d_dt + i, s0[i], t, fs);
     }
 }

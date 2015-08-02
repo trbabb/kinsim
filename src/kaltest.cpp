@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <time.h>
 
 #include <geomc/function/Dual.h>
 
@@ -23,11 +24,14 @@
 #include "visible/VisCallback.h"
 #include "visible/VisBox3d.h"
 
-#include "KalmanFilter.h"
+#include "KalmanFlat.h"
+//#include "KalmanFilter.h"
 #include "Solver.h"
 
 #define OMEGA_PROCESS_VARIANCE   0.25
 #define ACCEL_PROCESS_VARIANCE   0.025
+
+#define MAX_READINGS 12
 
 
 class SensorSimulator;
@@ -134,6 +138,7 @@ public:
     SensorSimulator():
             rng(new rng_t(11937294775LL)),
             filter(new KalmanFilter<real_t>(KINSTATE_SIZE, 
+                                            MAX_READINGS,
                                             new KinematicPredictor<real_t>(
                                                     ACCEL_PROCESS_VARIANCE, 
                                                     OMEGA_PROCESS_VARIANCE))), 
@@ -145,6 +150,7 @@ public:
     SensorSimulator(rng_t *rng):
             rng(rng),
             filter(new KalmanFilter<real_t>(KINSTATE_SIZE, 
+                                            MAX_READINGS,
                                             new KinematicPredictor<real_t>(
                                                     ACCEL_PROCESS_VARIANCE, 
                                                     OMEGA_PROCESS_VARIANCE))), 
@@ -179,7 +185,7 @@ public:
         s_mag.set_variance(sens_var);
     }
     
-    void advance_dt(real_t dt) {
+    double advance_dt(real_t dt) {
         int n_subsims = 8;
         KinematicState<real_t> s0 = truth;
         KinematicState<real_t> s1;
@@ -228,13 +234,17 @@ public:
         }
         
         // update the filter's estimate, given some jittered sensor readings.
+        clock_t start = clock();
         filter->advance(obs_list, t, dt);
+        clock_t end = clock();
         
         // xxx debug
         KinematicState<real_t> &fs = *(KinematicState<real_t>*)filter->x;
         fs.orient = fs.orient.unit();
 
         t += dt;
+        
+        return (end-start) / (double)CLOCKS_PER_SEC;
     }
     
 };
@@ -318,6 +328,26 @@ public:
 };
 
 
+void profile_kalman() {
+    SensorSimulator ssim;
+    double t_acc = 0;
+    
+    clock_t start = clock();
+    for (index_t i = 0; i < 10000; i++) {
+        t_acc += ssim.advance_dt(1/60.);
+    }
+    clock_t end = clock();
+    double t_delt = (end-start) / (double)CLOCKS_PER_SEC;
+    std::cout << "time: " << t_delt << " acc: " << t_acc << std::endl;
+}
+
+
+int not_main(int argc, char** argv) {
+    profile_kalman();
+    return 0;
+}
+
+
 int main(int argc, char **argv) {
     GLWindow win(&argc, argv, "kinematic solver", 1280, 1280);
     AnimTimer timer(&win);
@@ -340,4 +370,6 @@ int main(int argc, char **argv) {
     timer.fps = 60;
     timer.begin();
     win.showAll();
+    return 0;
 }
+

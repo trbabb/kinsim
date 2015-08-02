@@ -4,7 +4,7 @@
  * 
  * A template class for estimating state given imperfect measurements.
  * 
- * Requires implementations of Observer objects which describe the likelihood
+ * Requires implementations of Sensor objects which describe the likelihood
  * of a truth value given a measurement, and an implementation of a Predictor
  * object which can take a potential state and propagate it to the next likely
  * state. Predictor must be able to describe the likelihood of its prediction
@@ -32,15 +32,22 @@ class Observation;
 
 /**
  * @brief Models a sensor with uncertain relationship to a ground truth state.
+ * 
+ * An observer (sensor) can tell us about how an measurements map to states,
+ * and also how likely a particular measurement is given a candidate state.
+ * 
+ * `State` and `Measurement` may be the same shape (e.g. a vec3), or the measurement
+ * may be incomplete information about the state (e.g. a vec3 betraying something
+ * (e.g. gravity, north, acceleration) about a more complete kinematic state).
  */
 template <typename State, typename Measurement>
-class Observer {
+class Sensor {
 public:
     std::string name;
     typedef Observation<State, Measurement> observation_t;
     
-    Observer() {}
-    Observer(std::string name) : name(name) {}
+    Sensor() {}
+    Sensor(std::string name) : name(name) {}
     
     
     virtual real_t likelihood(const State &s, const Measurement &m) = 0;
@@ -60,14 +67,19 @@ public:
 
 /**
  * @brief Models a single reading with a particular type of sensor.
+ * 
+ * When we are inspecting a measurement, we need not just the data, but information
+ * about the sensor that generated the data-- namely its mapping to the state space.
+ * The sensor also can tell us the likelihood of observing this particular measurement
+ * if we're in a particular state.
  */
 template <typename State, typename Measurement> 
 class Observation : public ObservationBase<State> {
 public:
     Measurement measurement;
-    Observer<State,Measurement> *observer;
+    Sensor<State,Measurement> *observer;
     
-    Observation(Measurement m, Observer<State,Measurement> *o):
+    Observation(Measurement m, Sensor<State,Measurement> *o):
             measurement(m),
             observer(o) {}
     Observation() : observer(NULL) {}
@@ -116,11 +128,11 @@ template <typename State>
 class ParticleFilter {
 public:
     
-    typedef Particle<State>        particle_t;
+    typedef Particle<State>        particle_t;    
     typedef ObservationBase<State> observation_t;
     
-    std::vector<particle_t> particles;
-    Predictor<State>        *predictor;
+    std::vector<particle_t>  particles;  // a set of states and their likelihoods
+    Predictor<State>        *predictor;  // method of sampling from the space of possible states.
     rng_t                   *rng;
     
 protected:

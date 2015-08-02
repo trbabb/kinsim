@@ -140,9 +140,12 @@ struct ForceSystem {
 
 void body_combine_add_mul(BodyState *out, double k, const BodyState *x, const BodyState *b, size_t n);
 void body_combine_mul_exp(BodyState *out, double k, const BodyState *x, const BodyState *b, size_t n);
-// void          (*accum)(State*,         T,        const State*,       const State*,       size_t)
 void inline          macc(BodyState *out, double k, const BodyState *x, const BodyState *b, size_t n) { body_combine_mul_exp(out, k, x, b, n); }
-void body_delta(BodyState *out_dBodyDt, const BodyState &state, double t);
-void body_delta_for_rk4(BodyState *d_dt, const BodyState *s0, double t, size_t n, void *data);
+
+void body_delta              (BodyState *out_dBodyDt, const BodyState &state, double t);
+void body_delta_euler        (BodyState *out_dBodyDt, const BodyState &state, double t);
+
+void body_delta_for_rk4      (BodyState *d_dt, const BodyState *s0, double t, size_t n, void *data);
+void body_delta_euler_for_rk4(BodyState *d_dt, const BodyState *s0, double t, size_t n, void *data);
 
 #endif /* RIGIDBODY_H_ */

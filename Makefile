@@ -1,21 +1,19 @@
-CC = g++
-LD = g++
+CC = clang++
+LD = clang++
 AR = ar
 
 # compile
 INCLUDES = /usr/local/boost src /Users/tbabb/code/gltoy/src
-CFLAGS   = -std=c++11 -O3 -Wall -c -fmessage-length=0 -Wno-unused -Wno-unused-local-typedefs
+CFLAGS   = -g -std=c++11 -O3 -Wall -c -fmessage-length=0 -Wno-unused -Wno-unused-local-typedefs
 IFLAGS   = $(addprefix -I, $(INCLUDES))
 
 # link
-LIBDIRS  = /usr/local/boost/stage/lib \
-           /System/Library/Frameworks/OpenGL.framework/Libraries \
+LIBDIRS  = /System/Library/Frameworks/OpenGL.framework/Libraries \
 	   /Users/tbabb/code/gltoy/lib
-LIBS     = geomc GL png SDL_mixer z GLU boost_system gltoy
+LIBS     = geomc GL png z GLU gltoy
 LDFLAGS  = $(addprefix -l, $(LIBS)) \
            $(addprefix -L, $(LIBDIRS)) \
-           -framework GLUT -framework OpenGL \
-           `/opt/local/bin/sdl-config --libs --cflags --static-libs` \
+           -framework GLUT -framework OpenGL
 
 # sources
 MODULES  = imu
@@ -31,13 +29,22 @@ clean:
 
 ## binaries
 
+sensors: build/SerialSensor.o
+	$(CC) $(LDFLAGS) build/SerialSensor.o -o bin/sensors
+
+rotsim: build/RigidBody.o  build/rotsim.o
+	$(CC) $(LDFLAGS) build/RigidBody.o build/rotsim.o -o bin/rotsim
+
 qsim:  build/qsim.o
 	$(CC) $(LDFLAGS) build/qsim.o -o bin/qsim
 
 ksim: build/KinematicSimulator.o build/KinematicSolver.o build/KinematicSimulator.o build/KinSim.o
 	$(CC) $(LDFLAGS) build/KinematicSolver.o build/KinematicSimulator.o build/KinSim.o -o bin/ksim
 
-sim: $(OBJ)
+kaltest: build/kaltest.o
+	$(CC) $(LDFLAGS) build/kaltest.o -o bin/kaltest
+
+sim: build/RigidBody.o build/KeyIntegrator.o build/sim.o
 	$(CC) $(LDFLAGS) build/RigidBody.o build/KeyIntegrator.o build/sim.o -o bin/sim
 
 build/%.o : src/%.cpp

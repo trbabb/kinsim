@@ -18,7 +18,7 @@ void macc(KinematicState *o, double k, const KinematicState *d_ds, const Kinemat
         o->v = s->v + k * d_ds->v;
         o->a = s->a + k * d_ds->a;
         
-        o->orient = std::exp(k * d_ds->orient) * s->orient;
+        o->orient = std::exp(k * d_ds->orient / 2) * s->orient;
         o->omega  = s->omega + k * d_ds->omega;
     }
 }
@@ -102,8 +102,7 @@ void SensorSimulator::init_sensors() {
 
     s_mag.body_space_sensor.variance    = vec3(0.025 * 0.025);
     
-    c_acc.ctr      = vec3(0.);
-    c_acc.variance = vec3(0.1);
+    c_acc.variance = vec3(0.5);
 }
 
 
@@ -112,6 +111,7 @@ void SensorSimulator::advance_dt(real_t dt) {
     KinematicState s0 = truth;
     KinematicState s1;
     KinematicState b0, b1;
+    vec3 old_acc = s0.a;
 
     // advance the ground truth position/orientation
     real_t dt_i = dt / n_subsims;
@@ -125,7 +125,7 @@ void SensorSimulator::advance_dt(real_t dt) {
     }
     truth = s0;
 
-    std::vector<ObservationBase<KinematicState>*>  obs(1);
+    std::vector<ObservationBase<KinematicState>*>  obs(2);
 
     switch (std::uniform_int_distribution<int>(0,3)(*rng)) {
         case 0:
@@ -147,9 +147,8 @@ void SensorSimulator::advance_dt(real_t dt) {
             break;
     }
     latest_obs = obs[0];
-    // xxx debug: arbitrarily constrain accel info.
-    //acc_cns = ConstraintAcceleration::observation_t(0., &c_acc);
-    //obs[1]  = &acc_cns;
+    acc_cns = ConstraintAcceleration::observation_t(s0.a, &c_acc); // does this really tell us anything, except that jerk is constrained?
+    obs[1]  = &acc_cns;
  
     // update the filter's estimate, given some jittered sensor readings.
     filter.advance(obs, dt);
@@ -159,8 +158,8 @@ void SensorSimulator::advance_dt(real_t dt) {
 
 
 vec3 SensorSimulator::jerk(real_t t) {
-    //return vec3(cycle(t, 1), cycle(t + 0.77, 0.48776), cycle(t - 0.1693, 1.2284));
-    return 0.;
+    return vec3(cycle(t, 1), cycle(t + 0.77, 0.48776), cycle(t - 0.1693, 1.2284));
+    //return 0.;
 }
 
 

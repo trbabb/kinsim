@@ -10,6 +10,7 @@
 
 #include <geomc/linalg/AffineTransform.h>
 #include "ParticleFilter.h"
+#include "KinematicState.h"
 
 
 // sample the value of a normal distribution pdf at x
@@ -27,39 +28,23 @@ real_t clipped_vector_likelihood(const vec3  &actual,
                                  const rect3 &measurement_bounds);
 
 
-/*******************************************
- * State class                             *
- *******************************************/
-
-
-struct KinematicState {
-    
-    KinematicState();
-    
-    vec3 x;
-    vec3 v;
-    vec3 a;
-    vec3 omega;
-    quat orient;
-};
-
 
 /*******************************************
  * Sensor classes                          *
  *******************************************/
 
 
-class Sensor3Axis : public Observer<vec3, vec3> {
+class Sensor3Axis : public Sensor<vec3, vec3> {
 public:
     
-    using observation_t = Observer<vec3, vec3>::observation_t;
+    using observation_t = Sensor<vec3, vec3>::observation_t;
     
     Sensor3Axis();
     
     transform_t state2reading; // to initially obtain imperically
     rect3 clip_bounds;
     bool does_clip;
-    vec3 variance; //could be a matrix?
+    vec3 variance; // could be a matrix?
                    // i.e. could linearly depend on reading
                    // ...and there could be a covariance component to the noise too.
     
@@ -69,14 +54,24 @@ public:
 };
 
 
-class SensorMagnetometer : public Observer<KinematicState, vec3> {
+class SensorSpatial : public Sensor<KinematicState, vec3> {
+public:
+    
+    SensorSpatial(std::string s) : Sensor<KinematicState,vec3>(s) {}
+    SensorSpatial() {}
+    
+    using observation_t = Sensor<KinematicState, vec3>::observation_t;
+    Sensor3Axis body_space_sensor;
+};
+
+
+
+class SensorMagnetometer : public SensorSpatial {
 public:
     
     SensorMagnetometer();
     
-    using observation_t = Observer<KinematicState, vec3>::observation_t;
     
-    Sensor3Axis body_space_sensor;
     transform_t ref2ecef;
     
     vec3 compute_inertial_field(vec3 ref);
@@ -87,14 +82,10 @@ public:
 };
 
 
-class SensorAccelerometer : public Observer<KinematicState, vec3> {
+class SensorAccelerometer : public SensorSpatial {
 public:
     
     SensorAccelerometer();
-    
-    using observation_t = Observer<KinematicState, vec3>::observation_t;
-    
-    Sensor3Axis body_space_sensor;
     vec3 c_e; // center of the earth in reference space.
     
     vec3 gravity_inertial(vec3 p);
@@ -105,14 +96,10 @@ public:
 };
 
 
-class SensorRateGyro : public Observer<KinematicState, vec3> {
+class SensorRateGyro : public SensorSpatial {
 public:
     
     SensorRateGyro();
-    
-    using observation_t = Observer<KinematicState, vec3>::observation_t;
-    
-    Sensor3Axis body_space_sensor;
     
     virtual real_t likelihood(const KinematicState &s, const vec3 &m);
     observation_t simulate(const KinematicState &s, rng_t *rng);
@@ -126,7 +113,7 @@ public:
 //       the likelihood of the current sample based on where it was a whole
 //       second ago!
 //       note that the history could be simplified by ramer-douglas-peucker.
-class SensorGPSPositionXYZ : public Observer<KinematicState, vec3> {
+class SensorGPSPositionXYZ : public Sensor<KinematicState, vec3> {
 public:
     
     SensorGPSPositionXYZ();
@@ -139,7 +126,7 @@ public:
 };
 
 
-class SensorGPSVelocityXYZ : public Observer<KinematicState, vec3> {
+class SensorGPSVelocityXYZ : public Sensor<KinematicState, vec3> {
 public:
     
     SensorGPSVelocityXYZ();
@@ -152,15 +139,16 @@ public:
 };
 
 
-class ConstraintAcceleration : public Observer<KinematicState, vec3> {
+// could be guided by control input
+// models an observation that acceleration "should be" near a certain value
+class ConstraintAcceleration : public Sensor<KinematicState, vec3> {
 public:
     
-    using observation_t = Observer<KinematicState, vec3>::observation_t;
+    using observation_t = Sensor<KinematicState, vec3>::observation_t;
     
     ConstraintAcceleration();
     
     vec3 variance;
-    vec3 ctr;
     
     virtual real_t likelihood(const KinematicState &s, const vec3 &m);
     

@@ -32,6 +32,43 @@ void macc(State *out, T m, const State *x, const State *b, size_t n) {
 // its own type, and we allowed for direct computation of intermediate and
 // state variables.
 
+
+
+/**
+ * Advance a state with first-order euler integration.
+ * 
+ * @param s_final Output state.
+ * @param n Number of parallel states.
+ * @param t0 Time from which to advance.
+ * @param dt Length of time to advance.
+ * @param s0 State at time `t0`.
+ * @param delta Function accepting a state `s`, a time `t`, an item count, and 
+ *        a pointer to arbitrary external data, generating a rate of change for 
+ *        each state variable at `t`.
+ * @param accum Function for accumulating `n` (parameter 5) new states (parameter 3) 
+ *        into existing states (parameter 4), with the new states having a 
+ *        scaling factor of `k` (parameter 2) applied.
+ * @param buf0 Optional pre-allocated buffer for intermediate work, of length `n`.
+ */
+template <typename T, typename State>
+void euler_advance(State *s_final, size_t n,
+                   T t0, T dt,
+                   const State *s0, 
+                   void (*delta)(State*, const State*, T, size_t, void*),
+                   void (*accum)(State*, T, const State*, const State*, size_t),
+                   void *external_data=NULL,
+                   State *buf=NULL) {
+    bool alloc_buf = external_data == NULL;
+    if (alloc_buf) {
+        buf = new State[n];
+    }
+    
+    delta(buf, s0, t0, n, external_data);  //     buf <- dS/dt 
+    accum(s_final, dt, buf, s0, n);        // s_final <- dt * dS/dt + s0
+    
+    if (alloc_buf) delete [] buf;
+}
+
 /**
  * Advance a state with 4th-order Runge-Kutta.
  * 

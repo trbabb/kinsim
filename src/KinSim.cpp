@@ -17,7 +17,7 @@
 #include "KinematicSimulator.h"
 
 
-#define N_PARTICLES 2048
+#define N_PARTICLES 256
 
 /*
  * Algorithm input parameters:
@@ -50,6 +50,9 @@
  *     estimate is off. Especially if our cdf is zero, we should prefer these solutions.
  *     currently, all will be treated equally.
  *   - our gyro, e.g. can tell us something directly about possible states to explore.
+ *     > i.e. importance sampling.
+ *   - would be nice if we sampled nearby state space directly and not just advancements from
+ *     current configuration.
  * 
  * other thoughts:
  *     maybe more than sampling we need root-finding?
@@ -94,7 +97,7 @@ public:
         glColor3d(0.125,0.77,1.0);
         draw_kstate(truth, vec3(1.));
         //glColor3d(1.0, 0, 0);
-        //draw_kstate(guess);
+        draw_kstate(guess, vec3(1,0,0));
         //glColor3d(0.5,0.5,0.5);
         for (int i = 0; i < ssim.filter.particles.size(); i++) {
             draw_kstate(ssim.filter.particles[i].state, vec3(0.25));
@@ -123,6 +126,8 @@ public:
             else if (obs->name() == "Accelerometer") c = vec3(1,0,0);
             else if (obs->name() == "Rate Gyro")     c = vec3(0,0,1);
             vec3 o = obs->measurement;
+            //SensorSpatial *sp;
+            //if (sp = dynamic_cast<SensorSpatial*>(obs->observer)) { o = o / sp->body_space_sensor.state2reading; }
             glColor(c);
             VisBall(o, 0.08).draw();
         }

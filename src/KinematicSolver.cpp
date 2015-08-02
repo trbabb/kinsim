@@ -24,9 +24,18 @@
 // todo: add a pressure altimiter and model for it.
 // todo: improve predictor to draw better samples
 // todo: predictor may incorporate control inputs
+// todo: can we have a way to importance sample a joint probability density function?
+//       i.e. for pdfs A and B, can we write a method z() acting on arbitrary A or B,
+//       and some composition function c() over z(), that allows us to draw from 
+//       A * B in constant time?
+//         consider pdf() and inverse(pdf), and how to draw from these
+//         consider matrices of pdfs.
+//         consider conversion to radial coordinates.
+//            or compositions of functions taking pdfs
+//         this might be a sufficiently powerful generalization.
+//         consider where a cdf is not defined for a pdf P, but the cdf
+//         of P * P1 /is/ defined for some other pdf P1. e.g. your clip functions.
 
-
-KinematicState::KinematicState():orient(0,0,0,1) {}
 
 /*******************************************
  * Helper functions                        *
@@ -53,6 +62,7 @@ vec3 draw_random_vector(const vec3 &ctr, const vec3 &variance, rng_t *rng) {
 
 
 // this motherfucker is busteeeeed:
+//   edit: not sure why I thought that.
 real_t draw_vector_with_pdf(vec3 *out, const vec3 &ctr, const vec3 &variance, rng_t *rng) {
     *out = draw_random_vector(ctr, variance, rng);
     real_t pdf = 1;
@@ -73,7 +83,7 @@ quat draw_quat(rng_t *rng) {
 
 real_t draw_quat_with_pdf(quat *q, rng_t *rng) {
     *q = draw_quat(rng);
-    return 1 / (2 * M_PI * M_PI);
+    return 1 / (2 * M_PI * M_PI); // surf. area of 3-sphere.
 }
 
 
@@ -92,7 +102,7 @@ real_t clipped_vector_likelihood(const vec3  &actual,
                                  const rect3 &measurement_bounds) {
     // this pdf is somewhat degenerate because it has no indefinite integral.
     // however because we always renormalize our samples, and we always intersect
-    // this pdf with others which *are* well defined, there is no issue.
+    // this pdf with others which *are* well defined, this should work.
     vec3 ctr = measurement_bounds.clamp(measurement);
     vec3 bnds[2] = { measurement_bounds.min(), measurement_bounds.max() };
     real_t p = 1;
@@ -109,7 +119,7 @@ real_t clipped_vector_likelihood(const vec3  &actual,
             continue;
         }
         real_t dist_to_clip = std::abs(measurement[i] - edge);
-        real_t likelihood_clipped = 1 - std::erf(dist_to_clip);
+        real_t likelihood_clipped = 0.5 - 0.5 * std::erf(dist_to_clip / std::sqrt(2 * variance[i]));
         p *= likelihood_clipped;
     }
     return p;
@@ -124,14 +134,14 @@ real_t clipped_vector_likelihood(const vec3  &actual,
 ///////////////// Sensor3Axis /////////////////
 
 
-Sensor3Axis::Sensor3Axis():Observer<vec3, vec3>("3-Axis Sensor"), does_clip(false), variance(1) {};
+Sensor3Axis::Sensor3Axis():Sensor<vec3, vec3>("3-Axis Sensor"), does_clip(false), variance(1) {};
 
 real_t Sensor3Axis::likelihood(const vec3 &state, const vec3 &observed) {
     vec3 sensor_space = state2reading * state;
-    if (does_clip) {
-        return clipped_vector_likelihood(sensor_space, observed, variance * 2, clip_bounds);
+    if (does_clip) {    // was variance x2, but I'm not sure why.
+        return clipped_vector_likelihood(sensor_space, observed, variance, clip_bounds);
     } else {
-        return vector_likelihood(sensor_space, observed, variance * 2);
+        return vector_likelihood(sensor_space, observed, variance);
     }
 }
 
@@ -147,7 +157,7 @@ Sensor3Axis::observation_t Sensor3Axis::simulate(const vec3 &v, rng_t *rng) {
 ///////////////// SensorMagnetometer /////////////////
 
 
-SensorMagnetometer::SensorMagnetometer():Observer<KinematicState,vec3>("Magnetometer") {}
+SensorMagnetometer::SensorMagnetometer():SensorSpatial("Magnetometer") {}
 
 vec3 SensorMagnetometer::compute_inertial_field(vec3 ref) {
     // todo: this
@@ -183,7 +193,7 @@ SensorMagnetometer::observation_t SensorMagnetometer::simulate(const KinematicSt
 // will be closer to the origin, and certain orientations will change `g` and
 // thus move it closer or farther away.
 
-SensorAccelerometer::SensorAccelerometer():Observer<KinematicState,vec3>("Accelerometer") {}
+SensorAccelerometer::SensorAccelerometer():SensorSpatial("Accelerometer") {}
 
 vec3 SensorAccelerometer::gravity_inertial(vec3 p) {
     // todo: model 1/r^2
@@ -208,7 +218,7 @@ SensorAccelerometer::observation_t SensorAccelerometer::simulate(const Kinematic
 ///////////////// SensorRateGyro /////////////////
     
 
-SensorRateGyro::SensorRateGyro():Observer<KinematicState,vec3>("Rate Gyro") {}
+SensorRateGyro::SensorRateGyro():SensorSpatial("Rate Gyro") {}
 
 real_t SensorRateGyro::likelihood(const KinematicState &s, const vec3 &m) {
     return body_space_sensor.likelihood(s.omega * s.orient, m);
@@ -222,7 +232,7 @@ SensorRateGyro::observation_t SensorRateGyro::simulate(const KinematicState &s, 
 ///////////////// SensorGPSPositionXYZ /////////////////
 
 
-SensorGPSPositionXYZ::SensorGPSPositionXYZ():Observer<KinematicState,vec3>("GPS Position") {}
+SensorGPSPositionXYZ::SensorGPSPositionXYZ():Sensor<KinematicState,vec3>("GPS Position") {}
 
 real_t SensorGPSPositionXYZ::likelihood(const KinematicState &s, const vec3 &m) {
     // todo: your uncertainty might be different in alt, which would
@@ -235,7 +245,7 @@ real_t SensorGPSPositionXYZ::likelihood(const KinematicState &s, const vec3 &m) 
 ///////////////// SensorGPSVelocityXYZ /////////////////
 
 
-SensorGPSVelocityXYZ::SensorGPSVelocityXYZ():Observer<KinematicState,vec3>("GPS Velocity") {}
+SensorGPSVelocityXYZ::SensorGPSVelocityXYZ():Sensor<KinematicState,vec3>("GPS Velocity") {}
 
 real_t SensorGPSVelocityXYZ::likelihood(const KinematicState &s, const vec3 &m) {
     // todo: uncertainty calc is all fuxed.
@@ -247,10 +257,10 @@ real_t SensorGPSVelocityXYZ::likelihood(const KinematicState &s, const vec3 &m) 
 ///////////////// ConstraintAcceleration /////////////////
 
 
-ConstraintAcceleration::ConstraintAcceleration():Observer<KinematicState,vec3>("Acceleration constraint"), variance(1) {}
+ConstraintAcceleration::ConstraintAcceleration():Sensor<KinematicState,vec3>("Acceleration constraint"), variance(1) {}
 
 real_t ConstraintAcceleration::likelihood(const KinematicState& s, const vec3& m) {
-    return vector_likelihood(s.a, ctr, variance);
+    return vector_likelihood(s.a, m, variance);
 }
 
 
@@ -300,7 +310,7 @@ void KinematicPredictor::predict(KinematicState *s1, const KinematicState &s0, v
     // i.e. compute angular acceleration for new omega, and get analytic result.
     // you could probably solve rk4 and get a closed form 4th order solution...
     // right now we use verlet integration. kinda qrappy.
-    s1->orient = std::exp(quat(dt * s0.omega, 0)) * s0.orient;
+    s1->orient = std::exp(quat(dt * s0.omega / 2, 0)) * s0.orient;
     s1->omega  = omega;
 
     // renormalize if we've drifted appreciably.
