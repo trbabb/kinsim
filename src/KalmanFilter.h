@@ -168,8 +168,8 @@ class KalmanFilter {
         for (index_t j = 0; j < n; j++) {
             index_t i = 0;
             x0[j].dx  = 1; // query derivative in jth direction
-            for (index_t i = 0; i < n_obs; i++) {
-                const Measurement<T>& z_i = observations[i];
+            for (index_t k = 0; k < n_obs; k++) {
+                const Measurement<T>& z_i = observations[k];
                 index_t m_i = z_i.sensor->reading_size();
                 z_i.sensor->measure(z + i, x0);
                 i += m_i;
