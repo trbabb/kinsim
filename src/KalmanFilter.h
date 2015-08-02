@@ -55,7 +55,7 @@ class KalmanFilter {
     index_t  n;              // number of state fields
     T*       x;              // most recent state estimate
     SimpleMatrix<T,0,0> P;   // most recent estimate covariance
-    Predictor<T> *predictor; // estimator of "next" state
+    Predictor<T> *predictor; // estimator of "next" state (pass to predict() instead?)
     KalmanBuffer<T> pool;    // buffer allocator
         
     KalmanFilter(index_t n=1, index_t m=1):
@@ -87,13 +87,13 @@ class KalmanFilter {
     
     ~KalmanFilter() { delete [] x; }
     
+    
     // todo: pass around the size for safety/generality.
     // todo: handle control input to prediction
     // todo: consider a factoring where all sensors are known ahead of time
     //       and are either on or off. 
     // todo: some formulations factor the P matrix to maintain positive definite 
     //       symmetry. Can we just manually condition it? abs(max(elem, elem^T))?
-    
     
     void predict(T t, T dt) {
         Dual<T>* x0 = pool.getX0(); // dual version of x
@@ -137,11 +137,12 @@ class KalmanFilter {
     }
     
     
-    void update(const std::vector< Measurement<T> > &observations) {
+    void update(const Measurement<T>* observations, index_t n_obs) {
         // how many readings are we dealing with?
         index_t m = 0;
         index_t m_max = 0;
-        for (Measurement<T> z_i : observations) {
+        for (index_t i = 0; i < n_obs; i++) {
+            const Measurement<T>& z_i = observations[i];
             index_t m_i = z_i.sensor->reading_size();
             m += m_i;
             m_max = std::max(m_max, m_i);
@@ -150,7 +151,6 @@ class KalmanFilter {
         if (m == 0) return; // no readings to use.
         
         // compute predicted sensor readings and covariance
-        // todo: check initialization. who needs to be identity?
         Dual<T>* z = pool.getZ(); // for holding derivatives                 (length m)
         WrapperMatrix<T,0,0>    H_k = pool.getHk(m);     // sensor jacobian      (m x n)
         WrapperMatrix<T,0,0>   H_kT = pool.getHkT(m);    // transpose of H_k     (n x m)
@@ -168,7 +168,8 @@ class KalmanFilter {
         for (index_t j = 0; j < n; j++) {
             index_t i = 0;
             x0[j].dx  = 1; // query derivative in jth direction
-            for (Measurement<T> z_i : observations) {
+            for (index_t i = 0; i < n_obs; i++) {
+                const Measurement<T>& z_i = observations[i];
                 index_t m_i = z_i.sensor->reading_size();
                 z_i.sensor->measure(z + i, x0);
                 i += m_i;
@@ -183,7 +184,8 @@ class KalmanFilter {
         
         // copy measurments into y.
         index_t a = 0;
-        for (Measurement<T> z_i : observations) {
+        for (index_t i = 0; i < n_obs; i++) {
+            const Measurement<T>& z_i = observations[i];
             index_t m_i = z_i.sensor->reading_size();
             std::copy(z_i.data, z_i.data + m_i , y.begin() + a);
             a += m_i;
@@ -207,16 +209,16 @@ class KalmanFilter {
         // the covariance matrix is block-diagonal.
         T *mtx_tmp = new T[m_max * m_max]; // (alloc)
         a = 0;
-        for (Measurement<T> z_i : observations) {
+        for (index_t i = 0; i < n_obs; i++) {
+            const Measurement<T>& z_i = observations[i];
             index_t m_i = z_i.sensor->reading_size();
             z_i.sensor->covariance(mtx_tmp, z_i.data);
             
             index_t j = 0;
-            auto    i = S_k.region_begin(MatrixRegion(a, a + m_i));
-            auto  end = i.end();
-            for (; i != end; i++) {
-                *i += mtx_tmp[j];
-                j++;
+            auto    k = S_k.region_begin(MatrixRegion(a, a + m_i));
+            auto  end = k.end();
+            for (; k != end; ++k) {
+                *k += mtx_tmp[j++];
             }
             a += m_i;
         }
@@ -247,21 +249,15 @@ class KalmanFilter {
         mtxcopy(&P, tmp_kk);
     }
     
-    
-    void advance(const std::vector< Measurement<T> > &observations, T t, T dt, index_t iters=5) {
+    void advance(const Measurement<T>* observations, index_t n_obs, T t, T dt, index_t iters=5) {
         if (predictor) predict(t, dt);
         
-        if (observations.size() > 0) {
+        if (n_obs > 0) {
             T *xx = new T[n];
             for (int i = 0; i < iters; i++) {
                 // tah-dah, we are an iterated extended kalman filter.
                 std::copy(x, x + n, xx);
-                update(observations);
-                T sum = 0;
-                for (index_t i = 0; i < n; i++) {
-                    sum += std::pow(x[i] - xx[i], 2);
-                }
-                if (std::sqrt(sum) < 0.001) break; // xxx: threshold is arbitrary
+                update(observations, n_obs);
             }
             delete [] xx;
         }

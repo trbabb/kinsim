@@ -33,6 +33,8 @@
 #define OMEGA_PROCESS_VARIANCE   0.25
 #define ACCEL_PROCESS_VARIANCE   0.025
 
+#define MEASUREMENT_COUNT 12
+
 using namespace geom;
 using namespace std;
 
@@ -93,7 +95,8 @@ public:
     string tok_buf;
     
     SerialSensor():
-            filter(KINSTATE_SIZE, 
+            filter(KINSTATE_SIZE,
+                   MEASUREMENT_COUNT,
                    new KinematicPredictor<real_t>(
                         ACCEL_PROCESS_VARIANCE,
                         OMEGA_PROCESS_VARIANCE)),
@@ -192,7 +195,7 @@ public:
         loc_cnstr.sensor = &s_loc;
         measurements.push_back(loc_cnstr);
         
-        filter.advance(measurements, last_update_t, dt);
+        filter.advance(measurements.data(), measurements.size(), last_update_t, dt);
         state = *((KinematicState<real_t>*)filter.x);
         last_update_t = t;
     }

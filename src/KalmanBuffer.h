@@ -6,13 +6,12 @@
  * will alias storage for certain temporaries that don't have overlapping usage.
  * 
  * This construct, while rather ugly and cumbersome, avoids expensive and
- * redundant memory reallocation on every frame update.
+ * redundant memory reallocation on every frame update. The speed difference 
+ * versus alloc'ing is a little over 2x.
  * 
  * We must tell the pool ahead of time what the maximum number of sensor readings
  * `m` could be. Since we allow incremental updates with subsets of sensors,
  * per-frame queries may ask for smaller sensor matrices.
- * 
- * The speed difference versus malloc'ing is a little over 2x.
  */
 
 template <typename T>

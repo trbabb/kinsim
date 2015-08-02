@@ -234,7 +234,7 @@ public:
         
         // update the filter's estimate, given some jittered sensor readings.
         clock_t start = clock();
-        filter->advance(obs_list, t, dt);
+        filter->advance(obs_list.data(), obs_list.size(), t, dt);
         clock_t end = clock();
         
         // xxx debug

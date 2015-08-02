@@ -13,8 +13,6 @@
 
 #include "lintypes.h"
 
-#define MxElem(m,r,c) m[n*(r) + (c)]
-
 template <typename T>
 class Predictor {
   public:
@@ -58,7 +56,8 @@ class KinematicPredictor : public Predictor<T> {
     void covariance(T *cov, T *state, T t, T dt) {
         const index_t n = KINSTATE_SIZE;
         
-        std::fill(cov, cov + n*n, 0); // ???
+        WrapperMatrix<T,0,0> cov_m(cov, n, n);
+        cov_m.setZero();
         
         for (index_t i = 0; i < 3; i++) {
             // we assume that accel is goverend by gaussian random forces with a 
@@ -68,13 +67,13 @@ class KinematicPredictor : public Predictor<T> {
             // logic again to the distribution of v to obtain:
             //    variance(x) = t^2 * variance(a).
             index_t r = KINSTATE_IDX_A + i;
-            MxElem(cov, r, r) = accel_variance;
+            cov_m[r][r] = accel_variance;
             r = KINSTATE_IDX_V + i;
-            MxElem(cov, r, r) = accel_variance * dt;
+            cov_m[r][r] = accel_variance * dt;
             r = KINSTATE_IDX_X + i;
-            MxElem(cov, r, r) = accel_variance * dt * dt;
+            cov_m[r][r] = accel_variance * dt * dt;
             r = KINSTATE_IDX_OMEGA + i;
-            MxElem(cov, r, r) = omega_variance;
+            cov_m[r][r] = omega_variance;
             // todo: use the formula that covariance = var[x]*var[y] * cov(x,y)
             //       and a frequency cutoff for acceleration so that 
             //       the variance of a attenuates on short time scales.
@@ -126,11 +125,6 @@ class KinematicPredictor : public Predictor<T> {
         
         const T scale = 0.01;
         for (index_t i = 0; i < n*n; i++) cov[i] *= scale;
-        
-        // xxx debug:
-//        for (index_t i = KINSTATE_IDX_ORIENT; i < KINSTATE_IDX_ORIENT + 4; i++) {
-//            MxElem(cov, i, i) = sigm;
-//        }
     }
     
     
