@@ -21,9 +21,11 @@
  * Random number drawing               *
  ***************************************/
 
+
 typedef std::mt19937_64                        rng_t;
 typedef std::normal_distribution<real_t>       d_normal_t; 
 typedef std::uniform_real_distribution<real_t> d_uniform_t;
+
 
 // sample the value of a normal distribution pdf at x
 real_t normal(real_t x, real_t mean, real_t variance) {

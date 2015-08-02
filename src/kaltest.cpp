@@ -24,8 +24,7 @@
 #include "visible/VisCallback.h"
 #include "visible/VisBox3d.h"
 
-#include "KalmanFlat.h"
-//#include "KalmanFilter.h"
+#include "KalmanFilter.h"
 #include "Solver.h"
 
 #define OMEGA_PROCESS_VARIANCE   0.25
