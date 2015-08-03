@@ -111,11 +111,11 @@ class Sensor {
     
     /**
      * Return the sensor noise covariance near a particular measurement as an 
-     * M x M row-major matrix. The covariance is taken to be in reading-space.
-     * (The measurement may be ignored if the noise characteristics are 
-     * not dependent on it).
+     * M x M matrix. The covariance is taken to be in reading-space.
+     * The current measurement is passed as a convenience, so that sensors
+     * with nonlinear covariance may be modeled.
      */
-    virtual void covariance(T* cov, const T* measurement) const = 0;
+    virtual void covariance(WrapperMatrix<T,0,0> cov, const T* measurement) const = 0;
     /// Return the likelihood that a particular state and measurement coexist.
     virtual    T likelihood(const T* state, const T* measurement) = 0;
     /// Return a stochastic measurement of the given state, with noise added according to the characteristics of the sensor.
@@ -179,8 +179,8 @@ class SensorOriented : public Sensor<T> {
         std::copy(sens_qty.begin(), sens_qty.end(), measurement);
     }
     
-    void covariance(T *cov, const T *measurement) const {
-        std::copy(covariance_mtx.begin(), covariance_mtx.end(), cov);
+    void covariance(WrapperMatrix<T,0,0> cov, const T *measurement) const {
+        mtxcopy(&cov, covariance_mtx);
     }
     
     void set_variance(Vec<T,3> v) {
@@ -252,8 +252,8 @@ class SensorInertial : public Sensor<T> {
         std::copy(s.v.begin(), s.v.end(), measurement);
     }
     
-    void covariance(T *cov, const T* measurement) const {
-        std::copy(covariance_mtx.begin(), covariance_mtx.end(), cov);
+    void covariance(WrapperMatrix<T,0,0> cov, const T* measurement) const {
+        mtxcopy(&cov, covariance_mtx);
     }
     
     T likelihood(const T *state, const T *measurement) {

@@ -28,7 +28,7 @@ class KalmanBuffer {
     
 public:
     
-    // xxx: todo: compute mmax
+    // todo: move sensor-list initialization here.
     
     KalmanBuffer(index_t n, index_t m, index_t mmax):
             m(m), n(n), mmax(mmax) {

@@ -97,7 +97,7 @@ class KalmanFilter {
     ~KalmanFilter() { delete [] x; }
     
     
-    // todo: pass around the size for safety/generality.
+    // todo: pass the state to/from sensors as a WrapperMatrix<T,0,1>
     // todo: handle control input to prediction
     // todo: consider a factoring where all sensors are known ahead of time
     //       and are either on or off. 
@@ -149,12 +149,10 @@ class KalmanFilter {
     void update(const Measurement<T>* observations, index_t n_obs) {
         // how many readings are we dealing with?
         index_t m = 0;
-        index_t m_max = 0;
         for (index_t i = 0; i < n_obs; i++) {
             const Measurement<T>& z_i = observations[i];
             index_t m_i = z_i.sensor->reading_size();
             m += m_i;
-            m_max = std::max(m_max, m_i);
         }
         
         if (m == 0) return; // no readings to use.
@@ -212,26 +210,25 @@ class KalmanFilter {
         mul(&tmp_nm, P, H_kT);    // tmp <- P_k * H_k^T
         mul(&S_k, H_k, tmp_nm);   // S_k <- H_k * tmp
         
-        // xxx: todo: this. needs tweaking of sensors also.
         // add sensor noise covariance.
         // if sensors don't interfere with each other (an assumption),
         // the covariance matrix is block-diagonal.
-        T *mtx_tmp = new T[m_max * m_max]; // (alloc)
         a = 0;
         for (index_t i = 0; i < n_obs; i++) {
             const Measurement<T>& z_i = observations[i];
             index_t m_i = z_i.sensor->reading_size();
+            WrapperMatrix<T,0,0> mtx_tmp = pool.getTempSensorNoiseCovariance(m_i);
+            
             z_i.sensor->covariance(mtx_tmp, z_i.data);
             
             index_t j = 0;
             auto    k = S_k.region_begin(MatrixRegion(a, a + m_i));
             auto  end = k.end();
-            for (; k != end; ++k) {
-                *k += mtx_tmp[j++];
+            for (; k != end; k++) {
+                *k += mtx_tmp.begin()[j++];
             }
             a += m_i;
         }
-        delete [] mtx_tmp;
 
         // K_k <- P_k * H_k^T * S_k^-1
         
@@ -257,6 +254,7 @@ class KalmanFilter {
         mul(&tmp_kk, tmp_nn, P);
         mtxcopy(&P, tmp_kk);
     }
+    
     
     void advance(const Measurement<T>* observations, index_t n_obs, T t, T dt, index_t iters=5) {
         if (predictor) predict(t, dt);
