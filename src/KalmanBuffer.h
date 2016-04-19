@@ -1,7 +1,8 @@
 #include <geomc/linalg/Vec.h>
 #include <geomc/linalg/Matrix.h>
 
-/* A memory pool class for the internals of the Kalman filter class.
+/**
+ * A memory pool class for the internals of the Kalman filter class.
  * Computes the exact quantity of memory needed and pre-allocates it, and
  * will alias storage for certain temporaries that don't have overlapping usage.
  * 

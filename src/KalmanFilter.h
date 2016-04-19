@@ -99,8 +99,6 @@ class KalmanFilter {
     
     // todo: pass the state to/from sensors as a WrapperMatrix<T,0,1>
     // todo: handle control input to prediction
-    // todo: consider a factoring where all sensors are known ahead of time
-    //       and are either on or off. 
     // todo: some formulations factor the P matrix to maintain positive definite 
     //       symmetry. Can we just manually condition it? abs(max(elem, elem^T))?
     

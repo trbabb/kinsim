@@ -16,6 +16,8 @@
 #include <geomc/random/Random.h>
 
 #include "KinematicState.h"
+ 
+ // todo: store covariance as a mtx square root?
 
 /***************************************
  * Random number drawing               *
@@ -173,9 +175,13 @@ class SensorOriented : public Sensor<T> {
     }
     
     void measure(Dual<T> *measurement, const Dual<T> *state) {
+        // reinterpret `state` as a kinematic state object
         const KinematicState< Dual<T> > &ks = *((const KinematicState< Dual<T> >*)state);
+        // measure it in body space
         Vec<Dual<T>,4> body_qty = Vec<Dual<T>,4>(body_space_state(ks), 1);
+        // transform the reading to sensor space
         diff_measure_t sens_qty = (state2reading.mat * body_qty).template resized<3>(); // this works; T becomes the elem type of the vector
+        // save the result to output
         std::copy(sens_qty.begin(), sens_qty.end(), measurement);
     }
     
